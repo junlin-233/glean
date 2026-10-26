@@ -32,20 +32,38 @@ description: >
 
 ### 第 1 步：扫描（机械提取，不做判断）
 
+**数据源无关。** 脚本通过 adapter 解析不同宿主的转录，也能直接读文件或 stdin：
+
+| source | 位置 | 说明 |
+|---|---|---|
+| `workbuddy` | `~/.workbuddy/projects/**/*.jsonl` | 自动探测 |
+| `claude-code` | `~/.claude/projects/**/*.jsonl` | 自动探测 |
+| `text` | 任意 `.md` / `.txt` / stdin | 按 `User:` / `Assistant:` / `我：` 分段 |
+
 ```bash
+# 默认：自动探测本机两种宿主，取最近 3 个会话
 python ~/.workbuddy/skills/glean/scripts/scan_sessions.py --last 3 --pretty --out glean-scan.json
+
+# 只扫某个平台
+python ~/.workbuddy/skills/glean/scripts/scan_sessions.py --source claude-code --last 5
+
+# 任意转录：ChatGPT 导出、网页复制、手抄的对话
+python ~/.workbuddy/skills/glean/scripts/scan_sessions.py --input chat.md
+cat chat.txt | python ~/.workbuddy/skills/glean/scripts/scan_sessions.py --input -
 ```
 
 常用参数：
 - `--last N` 最近 N 个会话，默认 3
+- `--source auto|workbuddy|claude-code` 数据源，默认 auto（两种都扫）
+- `--root PATH` 自定义数据根目录，可重复
+- `--input PATH` 直接指定转录文件，`-` 读 stdin；**此时不做"当前活跃会话"排除**
 - `--all` / `--no-all` 全局或仅当前工作目录，默认全局
 - `--since YYYY-MM-DD` 只扫该日期之后
 - `--current-session <id>` 显式排除当前会话；默认已按"最近 5 分钟内活跃"自动排除
-- `--include-current` 仅调试用
 - `--sim-threshold 0.6` 重述候选的相似度阈值
 
 脚本只输出可复现的机械计数与摘录。它**不知道**哪些算表达问题——那是你的工作。
-若当前会话被排除属正常（D8），不要为了提高样本量而加 `--include-current`。
+自动扫描模式下当前会话被排除属正常，不要为了提高样本量而加 `--include-current`。
 
 自测：`python ~/.workbuddy/skills/glean/scripts/test_scan_sessions.py`
 
@@ -70,6 +88,10 @@ python ~/.workbuddy/skills/glean/scripts/scan_sessions.py --last 3 --pretty --ou
 - `ai_question_turns` 只是提问轮次。AI 主动确认需求是好事，不算返工。
 - `file_reedit_count` 是背景指标。分多次编辑同一文件是实现功能的常态；
   只有紧跟在 `correction_hits` 之后才可作为返工证据。
+- `suspect_mixed_turns > 0` 表示有用户轮次混入了历史 assistant 输出（宿主会这样拼接）。
+  读这些轮次时只看开头的问题部分，不要把人家的回答当成用户表达。
+- `meta_messages_filtered` 是被剔除的工具通知/IDE 注入条数，用于核对过滤是否生效；
+  数量异常高（远超真实轮次）说明该宿主的过滤规则需要更新。
 
 ### 第 3 步：三层路由
 
