@@ -1,0 +1,14 @@
+# 忽略本地产物
+__pycache__/
+*.pyc
+glean-scan*.json
+scan-latest.json
+
+# 台账含 session_id 与个人表达习惯，不入版本控制
+# 新环境请从 .tracker/patterns.template.md 复制初始化
+.tracker/patterns.md
+
+# 本地环境
+.venv/
+.DS_Store
+Thumbs.db
